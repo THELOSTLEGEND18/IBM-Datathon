@@ -17,7 +17,7 @@ class NudeDetector:
         "BUTTOCKS_COVERED",
     ]
 
-    def __init__(self, model_path, providers=None):
+    def __init__(self, model_path, blur_rules_path=None, providers=None):
         self.onnx_session = onnxruntime.InferenceSession(
             model_path,
             providers=C.get_available_providers() if not providers else providers
@@ -27,10 +27,25 @@ class NudeDetector:
         self.input_width = input_shape[2]
         self.input_height = input_shape[3]
         self.input_name = model_inputs[0].name
-        self.blur_exceptions = self._load_default_exceptions()
+        self.blur_exceptions = self._load_blur_rules(blur_rules_path)
 
-    def _load_default_exceptions(self):
-        return {label: True for label in self.LABELS}
+    def _load_blur_rules(self, rules_path):
+        # Default all rules to True if no file is provided
+        if not rules_path or not os.path.exists(rules_path):
+            return {label: True for label in self.LABELS}
+
+        blur_rules = {}
+        try:
+            with open(rules_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and '=' in line:
+                        label, value = [part.strip() for part in line.split('=')]
+                        blur_rules[label] = value.lower() == 'true'
+            return blur_rules
+        except Exception as e:
+            print(f"Warning: Error loading blur rules: {e}")
+            return {label: True for label in self.LABELS}
 
     def _read_frame(self, frame, target_size=320):
         img_height, img_width = frame.shape[:2]
@@ -97,10 +112,13 @@ class NudeDetector:
             box = boxes[i]
             score = scores[i]
             class_id = class_ids[i]
+            label = self.LABELS[class_id]
+            should_blur = self.blur_exceptions.get(label, True)  # Default to True if rule not found
             detections.append({
-                "class": self.LABELS[class_id],
+                "class": label,
                 "score": float(score),
-                "box": box
+                "box": box,
+                "should_blur": should_blur
             })
         
         return detections
@@ -119,18 +137,18 @@ class VideoProcessor:
         self.blur_threshold = blur_threshold
 
     def _should_blur(self, detections):
-        exposed_count = sum(1 for d in detections if "EXPOSED" in d["class"])
+        exposed_count = sum(1 for d in detections if "EXPOSED" in d["class"] and d["should_blur"])
         return exposed_count > 0
 
     def _apply_blur(self, frame, detections):
         for detection in detections:
-            if "EXPOSED" in detection["class"]:
+            # Only blur if the detection should be blurred according to rules
+            if "EXPOSED" in detection["class"] and detection["should_blur"]:
                 box = detection["box"]
                 x, y, w, h = box
                 if (0 <= y < frame.shape[0] and 0 <= x < frame.shape[1] and 
                     0 <= y + h < frame.shape[0] and 0 <= x + w < frame.shape[1]):
-                    region = frame[y:y+h, x:x+w]
-                    frame[y:y+h, x:x+w] = cv2.GaussianBlur(region, (99, 99), 30)
+                    frame[y:y+h, x:x+w] = np.zeros((h, w, 3), dtype=np.uint8)
         return frame
 
     def process_video(self, input_video, progress_callback=None):
