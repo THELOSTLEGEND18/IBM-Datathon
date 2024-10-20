@@ -54,6 +54,10 @@ Exception Handling: Implements custom exception rules to manage edge cases and i
    ```
    streamlit run app.py
    ```
+
+UI Interface
+![image](https://github.com/user-attachments/assets/f8a94b01-2ab6-4487-b904-39dec3d73a3a)
+
 Technical Details
 Machine Learning Model
 The project uses an ONNX model for content detection, located at Models/best.onnx. This model is loaded by the NudeDetector class for analyzing video frames.
