@@ -57,6 +57,8 @@ Exception Handling: Implements custom exception rules to manage edge cases and i
 
 UI Interface
 ![image](https://github.com/user-attachments/assets/f8a94b01-2ab6-4487-b904-39dec3d73a3a)
+![image](https://github.com/user-attachments/assets/ef4d7083-fa1e-4c89-acd5-941bfa00ccee)
+
 
 Technical Details
 Machine Learning Model
